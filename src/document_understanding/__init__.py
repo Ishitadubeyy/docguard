@@ -8,10 +8,17 @@ from src.document_understanding.models import (
     DocumentUnderstandingResult,
 )
 from src.document_understanding.pipeline import run_document_understanding_pipeline
+from src.document_understanding.vlm_config import BaselineVLMConfig
+from src.document_understanding.vlm_inference import InvalidImageError, run_vlm_inference
 from src.document_understanding.vlm_interface import VLMModel, VLMModelError
-from src.document_understanding.vlm_loader import create_vlm_model, get_missing_vlm_dependencies
+from src.document_understanding.vlm_loader import (
+    create_vlm_model,
+    get_missing_vlm_dependencies,
+    load_baseline_vlm,
+)
 
 __all__ = [
+    "BaselineVLMConfig",
     "Document",
     "DocumentPage",
     "DocumentUnderstandingResult",
@@ -19,8 +26,11 @@ __all__ = [
     "VLMConfig",
     "VLMModel",
     "VLMModelError",
+    "InvalidImageError",
     "create_vlm_model",
     "get_missing_vlm_dependencies",
+    "load_baseline_vlm",
     "run_document_understanding_pipeline",
     "run_inference",
+    "run_vlm_inference",
 ]

@@ -24,3 +24,4 @@ pytest>=7.4.0
 # Install separately on CPU-only machines (no CUDA):
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 # pip install transformers accelerate
+psutil>=5.9.0  # optional: process memory reporting in VLM inference results

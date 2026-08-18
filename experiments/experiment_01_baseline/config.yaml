@@ -1,0 +1,38 @@
+experiment: experiment_01_baseline
+description: >-
+  First working vision-language model baseline for DocGuard AI. A single
+  synthetic invoice image plus a single prompt are sent to a small open-weight
+  VLM. No OCR, no fine-tuning, no retrieval.
+
+model:
+  model_id: HuggingFaceTB/SmolVLM-256M-Instruct
+  parameters: ~256M
+  dtype: float32
+  device: cpu
+  max_new_tokens: 128
+  temperature: 0.0
+  decoding: greedy
+
+runtime:
+  python: "3.10.12"
+  torch: "2.13.0+cpu"
+  transformers: "5.15.0"
+  hardware: CPU-only Linux VM (no CUDA)
+
+dataset:
+  type: synthetic
+  image: data/synthetic/synthetic_invoice.png
+  generator: scripts/create_synthetic_invoice.py
+  notes: >-
+    Fully synthetic invoice (INV-001 / Alice Example / Laptop). No real
+    identity documents, bank statements, personal data, or scraped documents.
+
+prompts:
+  - describe
+  - classify
+  - key_value
+  - qa
+
+command: >-
+  python scripts/run_vlm.py --image data/synthetic/synthetic_invoice.png
+  --prompt "Describe this document." --pretty

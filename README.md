@@ -259,6 +259,8 @@ structured document understanding output
 ```
 src/document_understanding/
 ├── config.py          # VLMConfig, TaskType, env-based model settings
+├── vlm_config.py      # BaselineVLMConfig for the image-only VLM baseline
+├── vlm_inference.py   # Baseline image + prompt inference
 ├── prompts.py         # Modular prompts for supported tasks
 ├── models.py          # Document, DocumentPage, DocumentUnderstandingResult
 ├── vlm_interface.py   # Abstract VLMModel interface
@@ -430,6 +432,116 @@ Check `results[*].parse_success`, `results[*].schema_valid`, `results[*].schema_
 **Research observation (Phase 2.2):** Prompting improved JSON validity, but the baseline VLM produced a flat field structure instead of the requested nested schema. This motivates measuring schema compliance separately from JSON validity. The schema-normalization layer relocates known flat invoice fields into `fields` for evaluation compatibility; it is not model improvement and normalized fields do not count as schema compliance.
 
 **Next research hypothesis:** If prompting and parsing improvements increase JSON validity but schema compliance and field accuracy remain low, the next experiment should compare (a) task-specific few-shot examples in the prompt, (b) constrained decoding / JSON grammars if supported by the runtime, and (c) a slightly larger SmolVLM checkpoint—still without fine-tuning—while measuring field extraction against labeled samples.
+
+## Baseline VLM (Experiment 01)
+
+The baseline VLM is a **separate branch** from OCR: it takes the page image and
+a free-form prompt, and returns raw model text. It does not read OCR output and
+does not perform OCR correction.
+
+```
+                 ┌──→ Tesseract OCR ──→ structured OCR result
+document → image ┤
+                 └──→ baseline VLM ──→ visual reasoning (free-form text)
+```
+
+### Module layout
+
+| File | Purpose |
+|------|---------|
+| `src/document_understanding/vlm_config.py` | `BaselineVLMConfig`: model id, device, dtype, `max_new_tokens`, temperature, cache dir |
+| `src/document_understanding/vlm_loader.py` | `load_baseline_vlm()`: cached model + processor loading, device/dtype resolution, actionable load and OOM errors |
+| `src/document_understanding/vlm_inference.py` | `run_vlm_inference(image, prompt, config)`: generation only |
+| `src/document_understanding/prompts.py` | Reusable baseline prompts: `describe`, `classify`, `key_value`, `qa` |
+| `scripts/run_vlm.py` | CLI (`--prompt` / `--prompt-template` runs the baseline path) |
+| `scripts/create_synthetic_invoice.py` | Generates the synthetic test invoice |
+
+Model loading is cached per (model id, device, dtype, cache dir), so repeated
+inference calls do not reload or re-download weights.
+
+### Selected model
+
+**`HuggingFaceTB/SmolVLM-256M-Instruct` (~256M parameters, ~500 MB in float32).**
+
+Why: it is the smallest instruction-tuned open-weight VLM supported by
+`AutoModelForImageTextToText` in the installed Transformers version, it runs on
+CPU in ~10–15 s per prompt, and it needs no CUDA, no quantization, and no
+`bitsandbytes`. Larger checkpoints (SmolVLM-500M, Qwen2-VL-2B, 7B-class models)
+are better at structured extraction but are impractical on a CPU-only laptop.
+
+The model id is configurable — set `VLM_MODEL_ID` or pass `--model-id`. Nothing
+else in the project hard-codes a checkpoint.
+
+### Hardware limitations
+
+- CPU-only: no CUDA, no GPU offloading, no quantized kernels
+- Use `float32` on CPU (float16 CPU kernels are missing or slow); the config
+  picks `float16` automatically only when CUDA is detected
+- Expect ~10–15 s per prompt at 128–256 new tokens, and ~1.6 GB process RSS
+- GPU execution is recommended before drawing any quality conclusions or moving
+  to larger checkpoints
+
+### Installation
+
+```powershell
+pip install -r requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install transformers accelerate
+```
+
+`psutil` is optional and only used to report process memory in results.
+
+### Configuration
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `VLM_MODEL_ID` | `HuggingFaceTB/SmolVLM-256M-Instruct` | Hugging Face model id |
+| `VLM_DEVICE` | `auto` | `auto` detects CUDA, otherwise CPU |
+| `VLM_DTYPE` | device-dependent | `float32` on CPU, `float16` on CUDA |
+| `VLM_MAX_NEW_TOKENS` | `256` | Generation limit |
+| `VLM_TEMPERATURE` | `0.0` | `0.0` means greedy decoding |
+| `VLM_CACHE_DIR` | unset | Hugging Face cache directory |
+| `VLM_LOCAL_FILES_ONLY` | `false` | Require locally cached weights |
+
+### Run the baseline
+
+```powershell
+python scripts/create_synthetic_invoice.py
+python scripts/run_vlm.py --image data/synthetic/synthetic_invoice.png --prompt "Describe this document."
+python scripts/run_vlm.py --image data/synthetic/synthetic_invoice.png --prompt-template classify --pretty
+python scripts/run_vlm.py --image data/synthetic/synthetic_invoice.png --prompt-template qa --question "What is the invoice number?" --pretty
+```
+
+Optional overrides: `--model-id`, `--device`, `--max-new-tokens`.
+
+### Expected output
+
+```json
+{
+  "response": "This document is an invoice ...",
+  "model_name": "HuggingFaceTB/SmolVLM-256M-Instruct",
+  "device": "cpu",
+  "inference_time": 12.026,
+  "memory": {"process_rss_mb": 1573.71}
+}
+```
+
+### Test data
+
+Only synthetic documents are used. `scripts/create_synthetic_invoice.py`
+generates a fictional invoice (`INV-001` / `Alice Example` / `Laptop`); no real
+identity documents, bank statements, personal data, or scraped documents are
+included in this repository.
+
+### Baseline tests
+
+```powershell
+pytest tests/test_vlm_baseline.py -v          # unit tests, no model download
+pytest tests/test_vlm_smoke.py -m integration -v   # live model smoke test
+```
+
+Measured results for the baseline run are recorded in
+`experiments/experiment_01_baseline/`.
 
 ## Repository Layout
 
