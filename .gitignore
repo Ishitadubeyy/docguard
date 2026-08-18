@@ -1,0 +1,102 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment and secrets
+.env
+.env.local
+*.pem
+*.key
+credentials.json
+secrets/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data (keep directory structure, ignore contents)
+data/raw/**
+!data/raw/.gitkeep
+data/processed/**
+!data/processed/.gitkeep
+data/synthetic/**
+!data/synthetic/.gitkeep
+data/noisy/**
+!data/noisy/.gitkeep
+data/adversarial/**
+!data/adversarial/.gitkeep
+
+# Models and checkpoints (large artifacts)
+models/base/**
+!models/base/.gitkeep
+models/checkpoints/**
+!models/checkpoints/.gitkeep
+models/adapters/**
+!models/adapters/.gitkeep
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.ckpt
+
+# Experiment outputs
+experiments/**/runs/
+experiments/**/outputs/
+experiments/**/logs/
+mlruns/
+wandb/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+backend/__pycache__/
+
+# Logs
+*.log
+logs/
