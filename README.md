@@ -65,7 +65,8 @@ This repository is structured for iterative research: baseline experiments first
 | Experiment | Directory | Focus |
 |------------|-----------|-------|
 | 01 — Baseline | `experiments/experiment_01_baseline/` | Zero-shot / off-the-shelf model baselines on core tasks |
-| 02 — SFT | `experiments/experiment_02_sft/` | Supervised fine-tuning on curated task datasets |
+| 02 — Document Understanding | `experiments/experiment_02_document_understanding/` | Baseline VLM on five document understanding tasks (synthetic set) |
+| SFT (planned) | `experiments/experiment_02_sft/` | Supervised fine-tuning on curated task datasets |
 | 03 — LoRA | `experiments/experiment_03_lora/` | PEFT/LoRA/QLoRA adapter training and comparison |
 | 04 — Preference Alignment | `experiments/experiment_04_preference_alignment/` | Alignment methods for grounded outputs |
 | 05 — RAG | `experiments/experiment_05_rag/` | Retrieval-augmented generation for financial reasoning |
@@ -95,7 +96,7 @@ Each experiment directory will hold configs, run logs, and pointers to checkpoin
 | Tracking | MLflow and/or Weights & Biases |
 | Evaluation | Custom benchmarks, pytest, notebook analysis |
 
-**Current phase:** Phase 2 — document understanding + VLM baseline (Phase 1 OCR pipeline included).
+**Current phase:** Phase 3 — document understanding task layer on top of the Phase 2 VLM baseline (Phase 1 OCR pipeline unchanged).
 
 ## Phase 1 — Document Ingestion, Preprocessing, and OCR
 
@@ -542,6 +543,119 @@ pytest tests/test_vlm_smoke.py -m integration -v   # live model smoke test
 
 Measured results for the baseline run are recorded in
 `experiments/experiment_01_baseline/`.
+
+## Phase 3 — Document Understanding Task Layer (Experiment 02)
+
+Phase 3 adds a task layer on top of the baseline VLM. It does not load models, does not
+change OCR, and does not correct OCR output.
+
+```
+document
+   ↓
+ingestion → preprocessing
+   ↓
+   ├── Tesseract OCR ──→ structured OCR result (unchanged)
+   │
+   └── baseline VLM
+          ↓
+      Document Analyzer
+          ↓
+          ├── classification
+          ├── key-value extraction
+          ├── table extraction
+          ├── summarization
+          └── question answering
+```
+
+Layering: `vlm_loader` → `vlm_inference` → `document_analyzer` → task-specific output.
+
+### Module layout
+
+| File | Purpose |
+|------|---------|
+| `src/document_understanding/document_analyzer.py` | `DocumentAnalyzer.analyze(image_path, task, question=..., ocr_result=...)` |
+| `src/document_understanding/task_prompts.py` | One prompt per task; grounding rules and `null` handling |
+| `src/document_understanding/extraction_schema.py` | `AnalysisTask`, `DocumentType`, per-type field schemas, output parsers |
+| `src/document_understanding/evaluation.py` | Per-task metrics (classification, field, table, QA) |
+| `scripts/create_synthetic_documents.py` | Generates the 4 synthetic documents + ground truth |
+| `scripts/run_document_analysis.py` | CLI for a single task on a single document |
+| `scripts/evaluate_document_understanding.py` | Runs all tasks over the synthetic set and writes experiment 02 results |
+
+### Usage
+
+```bash
+python scripts/create_synthetic_documents.py
+
+python scripts/run_document_analysis.py --image data/synthetic/documents/synthetic_invoice.png \
+  --task classification --pretty
+python scripts/run_document_analysis.py --image data/synthetic/documents/synthetic_invoice.png \
+  --task key_value_extraction --document-type invoice --pretty
+python scripts/run_document_analysis.py --image data/synthetic/documents/synthetic_bank_statement.png \
+  --task table_extraction --pretty
+python scripts/run_document_analysis.py --image data/synthetic/documents/synthetic_salary_slip.png \
+  --task question_answering --question "What is the net salary?" --pretty
+```
+
+Optional OCR context: `--ocr-text-file path/to/ocr.txt`. OCR text is passed to the model
+as supporting context only; the OCR result itself is never replaced or corrected.
+
+### Output
+
+```json
+{
+  "task": "key_value_extraction",
+  "document_type": "invoice",
+  "fields": {"invoice_number": "INV-001", "customer": "Alice Example", "amount": "50000"},
+  "table": null,
+  "summary": null,
+  "question": null,
+  "answer": null,
+  "confidence": null,
+  "parse_success": true,
+  "parse_errors": [],
+  "raw_response": "...",
+  "model_name": "HuggingFaceTB/SmolVLM-256M-Instruct",
+  "device": "cpu",
+  "inference_time": 19.7,
+  "memory": {"process_rss_mb": 1590.53}
+}
+```
+
+`confidence` is always `null`: the model provides no calibrated score and model wording is
+never converted into a number. `raw_response` is always preserved, including on parse failure.
+
+### Baseline capability (experiment 02, measured)
+
+| Task | Metric | Result |
+|------|--------|--------|
+| Classification | accuracy | 4/4 = 1.00 |
+| Key-value extraction | field exact accuracy | 10/25 = 0.40 |
+| Table extraction | row / cell accuracy | 0/7 = 0.00 / 0/24 = 0.00 |
+| Question answering | exact match | 3/4 = 0.75 |
+| Summarization | — | no numerical score in this phase |
+
+CPU latency: mean 17.3 s per task run (min 14.2 s, max 23.2 s), ~1.6 GB process RSS.
+
+### Known failure cases
+
+- **Table extraction echoes the prompt schema** (`{"columns": ["<column>"], "rows": [["<cell or null>"]]}`)
+  for every document. Placeholder rows are rejected, so the task scores zero.
+- **Key-value extraction returns a list of improvised objects** instead of the requested flat
+  object, so correct values land under wrong keys; they are preserved under `additional_fields`
+  but scored as misses.
+- **Row alignment errors**: the closing balance of a 3-row statement was answered from row 2.
+- Summaries are transcriptions rather than abstractive summaries (no invented values observed).
+
+Full raw output, per-field scores, and failure analysis:
+`experiments/experiment_02_document_understanding/` (`results.json`, `analysis.md`).
+
+### Phase 3 tests
+
+```bash
+pytest tests/test_document_analyzer.py tests/test_extraction_schema.py -v
+```
+
+Unit tests use a stub inference function and download no models.
 
 ## Repository Layout
 
