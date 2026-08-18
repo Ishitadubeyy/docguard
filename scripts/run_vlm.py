@@ -17,6 +17,7 @@ from src.document_understanding.pipeline import run_document_understanding_pipel
 from src.document_understanding.prompts import get_baseline_prompt, list_baseline_prompts
 from src.document_understanding.vlm_config import BaselineVLMConfig
 from src.document_understanding.vlm_inference import run_vlm_inference
+from src.document_understanding.vlm_interface import VLMModelError
 from src.document_understanding.vlm_loader import get_missing_vlm_dependencies
 from src.ingestion.validator import validate_document_path
 from src.ocr.dependencies import get_missing_dependencies
@@ -96,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
 
-    baseline_mode = bool(args.prompt or args.prompt_template)
+    baseline_mode = args.prompt is not None or args.prompt_template is not None
     if baseline_mode:
         return _run_baseline(args)
 
@@ -171,20 +172,25 @@ def _run_baseline(args: argparse.Namespace) -> int:
             model_id=args.model_id or base.model_id,
             device=args.device or base.device,
             dtype="" if args.device else base.dtype,
-            max_new_tokens=args.max_new_tokens or base.max_new_tokens,
+            max_new_tokens=(
+                args.max_new_tokens if args.max_new_tokens is not None else base.max_new_tokens
+            ),
             temperature=base.temperature,
             cache_dir=base.cache_dir,
             trust_remote_code=base.trust_remote_code,
             local_files_only=base.local_files_only,
         )
         result = run_vlm_inference(args.image, prompt, config)
-    except Exception as exc:
+    except VLMModelError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         print(
             "\nIf the model is unavailable locally, download it first or set VLM_MODEL_ID "
             "to a cached checkpoint, for example HuggingFaceTB/SmolVLM-256M-Instruct.",
             file=sys.stderr,
         )
+        return 1
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     result["prompt"] = prompt
