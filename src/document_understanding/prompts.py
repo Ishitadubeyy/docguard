@@ -145,3 +145,71 @@ def build_prompt(
 def get_task_instruction(task: TaskType) -> str:
     """Return the task-specific instruction string."""
     return _TASK_INSTRUCTIONS[task]
+
+
+# ---------------------------------------------------------------------------
+# Baseline VLM prompts (image-only, no OCR context)
+#
+# Used by the Phase 2 baseline smoke test where a single image and a single
+# prompt are sent to the model. Prompts are defined here, never inline in the
+# inference code.
+# ---------------------------------------------------------------------------
+
+DOCUMENT_DESCRIPTION_PROMPT = (
+    "Describe this document image. State the document type, the visible layout "
+    "sections, and the main information it contains. Describe only what is visible; "
+    "do not guess missing details."
+)
+
+DOCUMENT_CLASSIFICATION_PROMPT = (
+    "Classify this document into a single type, such as invoice, receipt, form, "
+    "identity document, bank statement, letter, or other. Answer with the type "
+    "followed by one sentence of visual evidence."
+)
+
+KEY_VALUE_EXTRACTION_PROMPT = (
+    "Extract every visible key-value pair from this document image. "
+    "Return one pair per line in the format 'key: value'. "
+    "Do not invent values that are not visible in the image."
+)
+
+DOCUMENT_QA_PROMPT_TEMPLATE = (
+    "Answer the following question using only the content visible in this document "
+    "image. If the answer is not visible, reply exactly 'not visible in document'.\n"
+    "Question: {question}"
+)
+
+BASELINE_PROMPTS: dict[str, str] = {
+    "describe": DOCUMENT_DESCRIPTION_PROMPT,
+    "classify": DOCUMENT_CLASSIFICATION_PROMPT,
+    "key_value": KEY_VALUE_EXTRACTION_PROMPT,
+}
+
+
+def get_baseline_prompt(name: str, question: str | None = None) -> str:
+    """Return a reusable baseline prompt by name.
+
+    ``qa`` requires a ``question``; the other prompts ignore it.
+    """
+    key = name.strip().lower()
+    if key in {"qa", "question_answering", "document_qa"}:
+        if not question or not question.strip():
+            raise ValueError("The 'qa' prompt requires a question")
+        return build_document_qa_prompt(question)
+
+    if key not in BASELINE_PROMPTS:
+        supported = ", ".join([*BASELINE_PROMPTS, "qa"])
+        raise ValueError(f"Unknown baseline prompt '{name}'. Supported prompts: {supported}")
+    return BASELINE_PROMPTS[key]
+
+
+def build_document_qa_prompt(question: str) -> str:
+    """Build a document question-answering prompt."""
+    if not question or not question.strip():
+        raise ValueError("question must be a non-empty string")
+    return DOCUMENT_QA_PROMPT_TEMPLATE.format(question=question.strip())
+
+
+def list_baseline_prompts() -> list[str]:
+    """Return the names of available baseline prompts."""
+    return [*BASELINE_PROMPTS, "qa"]

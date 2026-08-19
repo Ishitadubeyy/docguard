@@ -1,0 +1,65 @@
+{
+  "experiment": "experiment_01_baseline",
+  "status": "RUN",
+  "timestamp": "2026-08-18T21:55:00Z",
+  "model": {
+    "model_id": "HuggingFaceTB/SmolVLM-256M-Instruct",
+    "parameters": "~256M",
+    "dtype": "float32",
+    "device": "cpu",
+    "temperature": 0.0,
+    "decoding": "greedy"
+  },
+  "environment": {
+    "note": "Metrics were measured on a CPU-only Linux VM, not on the Windows development machine. Timings on other hardware will differ.",
+    "os": "Ubuntu (CPU-only, no CUDA)",
+    "python": "3.10.12",
+    "torch": "2.13.0+cpu",
+    "transformers": "5.15.0"
+  },
+  "dataset": {
+    "type": "synthetic",
+    "image": "data/synthetic/synthetic_invoice.png",
+    "generator": "scripts/create_synthetic_invoice.py"
+  },
+  "runs": [
+    {
+      "prompt_name": "describe",
+      "max_new_tokens": 256,
+      "response": "This document is an invoice from Alice Example, detailing the invoice number, customer, item, quantity, and amount. It also includes a synthetic document that was generated for DocGuard AI testing.",
+      "inference_time_seconds": 12.026,
+      "memory": {"process_rss_mb": 1573.71}
+    },
+    {
+      "prompt_name": "classify",
+      "max_new_tokens": 128,
+      "response": "Invoice.",
+      "inference_time_seconds": 10.965,
+      "memory": {"process_rss_mb": 1624.2}
+    },
+    {
+      "prompt_name": "key_value",
+      "max_new_tokens": 128,
+      "response": "{'header': ['INVOICE', 'Invoice Number: INV-001', 'Customer: Alice Example', 'Item: Laptop', 'Quantity: 1', 'Amount: 50000'], 'rows': [['', 'Laptop', '1', ''], ['Date: 2026-01-01', '2026-01-01', ''], ['Synthetic document generated for DocGuard AI testing.', ''], ['']]}",
+      "inference_time_seconds": 14.293,
+      "memory": {"process_rss_mb": 1625.37}
+    },
+    {
+      "prompt_name": "qa",
+      "question": "What is the invoice number?",
+      "max_new_tokens": 128,
+      "response": "INV-001",
+      "inference_time_seconds": 10.657,
+      "memory": {"process_rss_mb": 1610.39}
+    }
+  ],
+  "observations": [
+    "Live CPU inference succeeded end to end; no fabricated outputs.",
+    "Classification and single-field QA were correct on the synthetic invoice.",
+    "Free-form key-value extraction ignored the requested 'key: value' line format and emitted a header/rows structure, so output formatting is unreliable at 256M parameters.",
+    "Memory figures are total process RSS (weights, tensors, and interpreter), not model-only memory."
+  ],
+  "metrics": {
+    "note": "No accuracy benchmark was run in this experiment; only qualitative single-sample observations are recorded."
+  }
+}
