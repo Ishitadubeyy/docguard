@@ -1,0 +1,60 @@
+experiment: experiment_02_document_understanding
+phase: 3
+goal: >
+  Measure the baseline capability of the existing 256M VLM on five document
+  understanding tasks over a synthetic document set, before any fine-tuning.
+
+model:
+  model_id: HuggingFaceTB/SmolVLM-256M-Instruct
+  parameters: ~256M
+  fine_tuned: false
+
+generation:
+  device: cpu
+  dtype: float32
+  max_new_tokens: 256
+  temperature: 0.0
+  do_sample: false
+
+runtime:
+  os: Linux (CPU-only VM)
+  python: "3.10.12"
+  torch: 2.13.0+cpu
+  transformers: "5.15.0"
+  cuda: false
+
+tasks:
+  - classification
+  - key_value_extraction
+  - table_extraction
+  - summarization
+  - question_answering
+
+dataset:
+  type: synthetic
+  generator: scripts/create_synthetic_documents.py
+  directory: data/synthetic/documents
+  ground_truth: data/synthetic/documents/ground_truth.json
+  documents:
+    - synthetic_invoice
+    - synthetic_bank_statement
+    - synthetic_salary_slip
+    - synthetic_identity_document
+  contains_real_personal_data: false
+
+ocr_context:
+  used: false
+  note: >
+    The analyzer accepts optional OCR text, but this experiment runs image-only
+    so results measure the VLM alone. The OCR engine is unchanged.
+
+metrics:
+  classification: accuracy
+  key_value_extraction: field-level exact accuracy
+  table_extraction: row accuracy and cell accuracy
+  question_answering: exact match
+  summarization: none (no numerical quality score in this phase)
+
+reproduce:
+  - python scripts/create_synthetic_documents.py
+  - python scripts/evaluate_document_understanding.py

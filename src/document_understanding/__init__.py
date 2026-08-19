@@ -1,6 +1,12 @@
 """Document understanding via vision-language models."""
 
 from src.document_understanding.config import TaskType, VLMConfig
+from src.document_understanding.document_analyzer import DocumentAnalyzer
+from src.document_understanding.extraction_schema import (
+    AnalysisTask,
+    DocumentType,
+    TaskResult,
+)
 from src.document_understanding.inference import run_inference
 from src.document_understanding.models import (
     Document,
@@ -8,6 +14,7 @@ from src.document_understanding.models import (
     DocumentUnderstandingResult,
 )
 from src.document_understanding.pipeline import run_document_understanding_pipeline
+from src.document_understanding.task_prompts import build_task_prompt
 from src.document_understanding.vlm_config import BaselineVLMConfig
 from src.document_understanding.vlm_inference import InvalidImageError, run_vlm_inference
 from src.document_understanding.vlm_interface import VLMModel, VLMModelError
@@ -18,7 +25,11 @@ from src.document_understanding.vlm_loader import (
 )
 
 __all__ = [
+    "AnalysisTask",
     "BaselineVLMConfig",
+    "DocumentAnalyzer",
+    "DocumentType",
+    "TaskResult",
     "Document",
     "DocumentPage",
     "DocumentUnderstandingResult",
@@ -27,6 +38,7 @@ __all__ = [
     "VLMModel",
     "VLMModelError",
     "InvalidImageError",
+    "build_task_prompt",
     "create_vlm_model",
     "get_missing_vlm_dependencies",
     "load_baseline_vlm",
